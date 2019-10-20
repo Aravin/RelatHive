@@ -1,18 +1,22 @@
-.homepage-bg {
+.full-screen {
   /* The image used */
   // background-image: url("img_girl.jpg");
-  // background-color:#ccc;
+  background-color: aquamarine;
 
   /* Full height */
-  height: 100%;
+  height: 90%;
 
   /* Center and scale the image nicely */
   background-position: center;
   background-repeat: no-repeat;
   background-size: cover;
+  position: relative;
 }
 
 .homepage-card {
-  width: 75%;
-  margin: 10px auto;
+  position: absolute;
+  margin: 0;
+  top: 20%;
+  left: 20%;
+  width: 60%;
 }
