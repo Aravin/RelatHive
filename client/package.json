@@ -25,7 +25,6 @@
     "@angular/router": "~9.1.12",
     "@angular/service-worker": "~9.1.12",
     "firebase": "^7.2.1",
-    "hammerjs": "^2.0.8",
     "rxjs": "~6.6.3",
     "tslib": "^1.10.0",
     "zone.js": "~0.10.3"
