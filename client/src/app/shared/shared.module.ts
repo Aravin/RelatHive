@@ -11,6 +11,7 @@ import {MatFormFieldModule} from '@angular/material/form-field';
 import { MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatInputModule } from '@angular/material/input';
 
+import {DragDropModule} from '@angular/cdk/drag-drop';
 
 import { ShellComponent } from './shell/shell.component';
 import { RouterModule } from '@angular/router';
@@ -34,7 +35,8 @@ const modules = [
     MatIconModule,
     MatFormFieldModule,
     MatSnackBarModule,
-    MatInputModule
+    MatInputModule,
+    DragDropModule,
 ];
 
 @NgModule({
