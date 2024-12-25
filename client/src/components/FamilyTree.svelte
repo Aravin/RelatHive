@@ -10,68 +10,53 @@
     let container: HTMLElement;
     let showModal = false;
 
-    // Load nodes from localStorage or use sample data
+    // Load nodes from localStorage or use default
     function loadInitialNodes(): FamilyMember[] {
         if (typeof window === 'undefined') return [defaultMember];
         
         try {
             const savedNodes = localStorage.getItem('familyTreeNodes');
-            if (savedNodes) {
-                return JSON.parse(savedNodes);
-            }
+            return savedNodes ? JSON.parse(savedNodes) : [defaultMember];
         } catch (error) {
             console.error('Error loading from localStorage:', error);
+            return [defaultMember];
         }
-
-        // Sample family tree data
-        return [
-            defaultMember,
-            {
-                id: 'father',
-                name: 'Father',
-                gender: 'male',
-                relation: 'father',
-                children: []
-            },
-            {
-                id: 'mother',
-                name: 'Mother',
-                gender: 'female',
-                relation: 'mother',
-                children: []
-            },
-            {
-                id: 'sister',
-                name: 'Sister',
-                gender: 'female',
-                relation: 'sister',
-                children: []
-            },
-            {
-                id: 'spouse',
-                name: 'Spouse',
-                gender: 'female',
-                relation: 'spouse',
-                children: []
-            }
-        ];
     }
 
     let familyNodes = loadInitialNodes();
 
     function getLevel(relation: string): number {
+        // Group relations by level
         const levels: Record<string, number> = {
-            'grandfather': 1, 'grandmother': 1,
-            'father': 2, 'mother': 2,
-            'self': 3, 'spouse': 3, 'sibling': 3,
-            'son': 4, 'daughter': 4,
-            'grandson': 5, 'granddaughter': 5
+            // Level 1 - Grandparents
+            'grandfather': 1,
+            'grandmother': 1,
+            'grandfather_in_law': 1,
+            'grandmother_in_law': 1,
+
+            // Level 2 - Parents
+            'father': 2,
+            'mother': 2,
+            'father_in_law': 2,
+            'mother_in_law': 2,
+
+            // Level 3 - Self, Siblings, and Spouse
+            'self': 3,
+            'brother': 3,
+            'sister': 3,
+            'spouse': 3,
+            'brother_in_law': 3,
+            'sister_in_law': 3,
+
+            // Level 4 - Children
+            'son': 4,
+            'daughter': 4,
+
+            // Level 5 - Grandchildren
+            'grandson': 5,
+            'granddaughter': 5
         };
         return levels[relation] || 3;
-    }
-
-    function openAddModal() {
-        showModal = true;
     }
 
     let newMember: FamilyMember = {
@@ -82,10 +67,9 @@
         children: []
     };
     
-    let selectedRelativeTo = 'root'; // Default to root/self
+    let selectedRelativeTo = 'root';
 
     $: availableRelations = newMember.gender ? genderBasedRelations[newMember.gender] : [];
-
     $: availableRelatives = [
         { id: 'root', label: 'Me (Self)' },
         ...familyNodes
@@ -98,7 +82,6 @@
 
     function formatDate(member: FamilyMember): string {
         if (!member.birthYear) return '';
-        
         const month = member.birthMonth ? `-${member.birthMonth}` : '';
         const day = member.birthDay ? `-${member.birthDay}` : '';
         return `\n(${member.birthYear}${month}${day})`;
@@ -106,74 +89,24 @@
 
     function formatNodeLabel(member: FamilyMember): string {
         const dateStr = formatDate(member);
-        const relationStr = member.relation === 'self' ? 'Me' : member.relation;
+        let relationStr = member.relation;
+
+        // Format relation string
+        if (member.relation === 'self') {
+            relationStr = 'Me';
+        } else if (member.relation) {
+            // Capitalize first letter
+            relationStr = member.relation.charAt(0).toUpperCase() + member.relation.slice(1);
+        }
+
         return `${member.name}\n(${relationStr})${dateStr}`;
     }
 
-    function createEdge(member: FamilyMember, relativeTo: string) {
-        return {
-            from: relativeTo,
-            to: member.id,
-            smooth: {
-                enabled: true,
-                type: 'cubicBezier',
-                roundness: 0.5
-            }
-        };
-    }
-
-    function createNodes(familyNodes: FamilyMember[]) {
-        const nodes = [];
-        const processedIds = new Set();
-
-        for (const member of familyNodes) {
-            if (processedIds.has(member.id)) continue;
-
-            if (member.relation === 'spouse') {
-                // Find the partner (self)
-                const self = familyNodes.find(m => m.relation === 'self');
-                if (self) {
-                    // Create a marriage node (invisible connector)
-                    nodes.push({
-                        id: `marriage_${self.id}_${member.id}`,
-                        label: '💑',
-                        level: getLevel('self'),
-                        shape: 'circle',
-                        size: 25,
-                        color: '#E91E63',
-                        font: { size: 20 }
-                    });
-
-                    // Add both partners
-                    nodes.push({
-                        id: self.id,
-                        label: formatNodeLabel(self),
-                        level: getLevel('self'),
-                        color: self.gender === 'male' ? '#E3F2FD' : '#FCE4EC',
-                        x: -50, // Position to left of marriage node
-                        font: { size: 16, multi: true, align: 'center' },
-                        borderWidth: 2,
-                        borderColor: self.gender === 'male' ? '#2196F3' : '#E91E63',
-                        shape: 'box'
-                    });
-
-                    nodes.push({
-                        id: member.id,
-                        label: formatNodeLabel(member),
-                        level: getLevel('self'),
-                        color: member.gender === 'male' ? '#E3F2FD' : '#FCE4EC',
-                        x: 50, // Position to right of marriage node
-                        font: { size: 16, multi: true, align: 'center' },
-                        borderWidth: 2,
-                        borderColor: member.gender === 'male' ? '#2196F3' : '#E91E63',
-                        shape: 'box'
-                    });
-
-                    processedIds.add(self.id);
-                    processedIds.add(member.id);
-                }
-            } else if (!processedIds.has(member.id)) {
-                nodes.push({
+    function initNetwork(container: HTMLElement) {
+        // Create nodes with specific x-coordinates for positioning
+        const visNodes = new DataSet(
+            familyNodes.map(member => {
+                const baseNode = {
                     id: member.id,
                     label: formatNodeLabel(member),
                     level: getLevel(member.relation),
@@ -181,94 +114,72 @@
                     font: { size: 16, multi: true, align: 'center' },
                     borderWidth: 2,
                     borderColor: member.gender === 'male' ? '#2196F3' : '#E91E63',
-                    shape: 'box'
-                });
-                processedIds.add(member.id);
-            }
-        }
+                    shape: 'box',
+                    fixed: { y: true }
+                };
 
-        return new DataSet(nodes);
-    }
-
-    function createMarriageEdges(familyNodes: FamilyMember[]) {
-        const edges = [];
-        
-        // Create marriage connections
-        const spouse = familyNodes.find(m => m.relation === 'spouse');
-        const self = familyNodes.find(m => m.relation === 'self');
-        
-        if (spouse && self) {
-            const marriageNodeId = `marriage_${self.id}_${spouse.id}`;
-            edges.push(
-                {
-                    from: 'root',
-                    to: marriageNodeId,
-                    smooth: { 
-                        enabled: true,
-                        type: 'continuous',
-                        roundness: 0
+                // Position nodes horizontally based on their relationships
+                if (member.relation === 'spouse') {
+                    const relatedTo = familyNodes.find(m => m.id === member.relativeTo);
+                    if (relatedTo) {
+                        return {
+                            ...baseNode,
+                            x: 100,  // Position spouse to the right
+                            fixed: { x: true, y: true }
+                        };
                     }
-                },
-                {
-                    from: marriageNodeId,
-                    to: spouse.id,
-                    smooth: { 
-                        enabled: true,
-                        type: 'continuous',
-                        roundness: 0
-                    }
+                } else if (member.relation === 'brother' || member.relation === 'sister') {
+                    return {
+                        ...baseNode,
+                        x: -200,  // Position siblings to the left
+                        fixed: { x: true, y: true }
+                    };
                 }
-            );
-        }
 
-        // Create other family connections
-        familyNodes.forEach(member => {
-            if (member.relation !== 'self' && member.relation !== 'spouse') {
-                edges.push({
-                    from: selectedRelativeTo,
-                    to: member.id,
-                    smooth: {
-                        enabled: true,
-                        type: 'cubicBezier',
-                        roundness: 0.5
-                    }
-                });
-            }
-        });
-
-        return edges;
-    }
-
-    function initNetwork(container: HTMLElement) {
-        // Create nodes
-        const visNodes = new DataSet(
-            familyNodes.map(member => ({
-                id: member.id,
-                label: formatNodeLabel(member),
-                level: getLevel(member.relation),
-                color: member.gender === 'male' ? '#E3F2FD' : '#FCE4EC',
-                font: {
-                    size: 16,
-                    multi: true,
-                    align: 'center'
-                },
-                borderWidth: 2,
-                borderColor: member.gender === 'male' ? '#2196F3' : '#E91E63',
-                shape: 'box'
-            }))
+                return baseNode;
+            })
         );
 
-        // Create edges
         const edges = familyNodes
             .map(member => {
                 if (member.relation === 'self') return null;
+
+                // For spouses - horizontal connection
+                if (member.relation === 'spouse') {
+                    return {
+                        from: member.relativeTo || 'root',
+                        to: member.id,
+                        smooth: { enabled: false },  // Straight line
+                        physics: false,
+                        length: 100,
+                        arrows: { to: false },
+                        color: { color: '#999999' },
+                        dashes: [5, 5]
+                    };
+                }
+
+                // For siblings - connect to father or root
+                if (member.relation === 'brother' || member.relation === 'sister') {
+                    const father = familyNodes.find(m => m.relation === 'father');
+                    return {
+                        from: father ? father.id : 'root',
+                        to: member.id,
+                        smooth: { 
+                            enabled: true,
+                            type: 'curvedCW',
+                            roundness: 0.2
+                        }
+                    };
+                }
+
+                // For other relationships
                 return {
-                    from: 'root',
-                    to: member.id,
-                    smooth: {
+                    from: member.relation.includes('father') || member.relation.includes('mother') ? member.id : member.relativeTo || 'root',
+                    to: member.relation.includes('father') || member.relation.includes('mother') ? 'root' : member.id,
+                    smooth: { 
                         enabled: true,
-                        type: 'cubicBezier',
-                        roundness: 0.5
+                        type: 'curvedCCW',
+                        roundness: 0.2
                     }
                 };
             })
@@ -280,69 +191,40 @@
                     direction: 'UD',
                     sortMethod: 'directed',
                     nodeSpacing: 200,
-                    levelSeparation: 150
+                    levelSeparation: 150,
+                    parentCentralization: false,
+                    blockShifting: false
                 }
             },
-            physics: false
+            physics: {
+                enabled: false
+            },
+            nodes: {
+                fixed: true
+            },
+            edges: {
+                smooth: {
+                    type: 'curvedCW',
+                    roundness: 0.2
+                }
+            }
         };
 
         const network = new Network(container, { nodes: visNodes, edges }, options);
-
-        // Show delete button only on hover
-        network.on('hoverNode', function(params) {
-            if (params.node !== 'root') {
-                const node = visNodes.get(params.node);
-                if (!node) return;
-                
-                visNodes.update({
-                    ...node,
-                    label: formatNodeLabel(node as any) + '\n\n🗑️'
-                });
-                container.style.cursor = 'pointer';
-            }
-        });
-
-        network.on('blurNode', function(params) {
-            if (params.node !== 'root') {
-                const node = visNodes.get(params.node);
-                if (!node) return;
-
-                visNodes.update({
-                    ...node,
-                    label: formatNodeLabel(node as any)
-                });
-                container.style.cursor = 'default';
-            }
-        });
-
-        // Handle delete button click
-        network.on('click', function(params) {
-            if (params.nodes.length > 0) {
-                const nodeId = params.nodes[0];
-                if (nodeId !== 'root' && !nodeId.includes('marriage_')) {
-                    const clickY = params.pointer.DOM.y;
-                    const nodePos = network.getBoundingBox(nodeId);
-                    const deleteIconArea = nodePos.bottom - 20;
-
-                    if (clickY > deleteIconArea && clickY < nodePos.bottom) {
-                        const deleteConfirm = window.confirm('Do you want to delete this family member?');
-                        if (deleteConfirm) {
-                            deleteMember(nodeId);
-                        }
-                    }
-                }
-            }
-        });
     }
 
-    onMount(() => {
-        initNetwork(container);
-    });
-
     function handleSubmit() {
-        if (!newMember.name || !newMember.relation) return;
+        if (!newMember.name || !newMember.relation || !newMember.gender) return;
         
-        familyNodes = [...familyNodes, newMember];
+        // Get relation label from available relations
+        const relationObj = availableRelations.find(r => r.value === newMember.relation);
+        
+        familyNodes = [...familyNodes, {
+            ...newMember,
+            relativeTo: selectedRelativeTo,
+            relation: relationObj?.value || newMember.relation // Use the relation value
+        }];
+        
         localStorage.setItem('familyTreeNodes', JSON.stringify(familyNodes));
         
         initNetwork(container);
@@ -353,7 +235,8 @@
             name: '',
             gender: '',
             relation: '',
-            children: []
+            children: [],
+            relativeTo: 'root'
         };
         selectedRelativeTo = 'root';
     }
@@ -364,6 +247,12 @@
         localStorage.setItem('familyTreeNodes', JSON.stringify(familyNodes));
         initNetwork(container);
     }
+
+    function openAddModal() {
+        showModal = true;
+    }
+
+    onMount(() => initNetwork(container));
 </script>
 
 <div class="container">

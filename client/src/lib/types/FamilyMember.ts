@@ -7,6 +7,7 @@ export interface FamilyMember {
     birthMonth?: number;
     birthDay?: number;
     children: FamilyMember[];
+    relativeTo?: string;
 }
 
 export const defaultMember: FamilyMember = {
