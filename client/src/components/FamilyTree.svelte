@@ -144,25 +144,24 @@
             .map(member => {
                 if (member.relation === 'self') return null;
 
-                // For spouses
+                // For spouses - connect directly to their partners
                 if (member.relation === 'spouse') {
                     return {
                         from: member.relativeTo || 'root',
                         to: member.id,
-                        smooth: false,  // Changed from {enabled: false}
+                        smooth: false,
                         physics: false,
-                        length: 100,
+                        length: 150,
                         arrows: { to: false },
                         color: { color: '#999999' },
                         dashes: [5, 5]
                     };
                 }
 
-                // For siblings - connect to father or root
+                // For siblings - connect to root (me)
                 if (member.relation === 'brother' || member.relation === 'sister') {
-                    const father = familyNodes.find(m => m.relation === 'father');
                     return {
-                        from: father ? father.id : 'root',
+                        from: 'root',
                         to: member.id,
                         smooth: { 
                             enabled: true,
@@ -172,13 +171,13 @@
                     };
                 }
 
-                // For other relationships
+                // For all other relationships
                 return {
-                    from: member.relation.includes('father') || member.relation.includes('mother') ? member.id : member.relativeTo || 'root',
-                    to: member.relation.includes('father') || member.relation.includes('mother') ? 'root' : member.id,
+                    from: member.relativeTo || 'root',
+                    to: member.id,
                     smooth: { 
                         enabled: true,
-                        type: 'curvedCCW',
+                        type: 'curvedCW',
                         roundness: 0.2
                     }
                 };
@@ -190,15 +189,12 @@
                 hierarchical: {
                     direction: 'UD',
                     sortMethod: 'directed',
-                    nodeSpacing: 200,
+                    nodeSpacing: 250,
                     levelSeparation: 150,
-                    parentCentralization: false,
-                    blockShifting: false
+                    parentCentralization: false
                 }
             },
-            physics: {
-                enabled: false
-            },
+            physics: false,
             nodes: {
                 fixed: true
             },
