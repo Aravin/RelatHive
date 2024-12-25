@@ -144,12 +144,12 @@
             .map(member => {
                 if (member.relation === 'self') return null;
 
-                // For spouses - horizontal connection
+                // For spouses
                 if (member.relation === 'spouse') {
                     return {
                         from: member.relativeTo || 'root',
                         to: member.id,
-                        smooth: { enabled: false },  // Straight line
+                        smooth: false,  // Changed from {enabled: false}
                         physics: false,
                         length: 100,
                         arrows: { to: false },
@@ -204,6 +204,7 @@
             },
             edges: {
                 smooth: {
+                    enabled: true,
                     type: 'curvedCW',
                     roundness: 0.2
                 }
